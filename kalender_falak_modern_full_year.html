@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalender Falak Modern</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        .gradient-bg { background: linear-gradient(135deg, #064e3b 0%, #047857 100%); }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen text-slate-800">
+
+    <div class="gradient-bg min-h-screen p-4 md:p-8">
+        <div class="max-w-4xl mx-auto">
+            <header class="text-center mb-8 text-white">
+                <h1 class="text-3xl md:text-4xl font-bold mb-2">Kalender Falak Modern</h1>
+                <p class="text-emerald-100 opacity-90">Perhitungan Hisab Urfi & Penentuan Kabisah</p>
+            </header>
+
+            <div class="glass rounded-3xl shadow-2xl p-6 md:p-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <div>
+                        <label class="block text-sm font-semibold text-emerald-900 mb-2">Tahun:</label>
+                        <input type="number" id="inputYear" value="1448" class="w-full p-3 rounded-xl border border-emerald-200 outline-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-emerald-900 mb-2">Koreksi Hari (Offset):</label>
+                        <select id="offset" class="w-full p-3 rounded-xl border border-emerald-200 outline-emerald-500">
+                            <option value="0">0 (Sesuai Hisab Urfi)</option>
+                            <option value="1">+1 Hari</option>
+                            <option value="-1">-1 Hari</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="calculate()" class="w-full py-4 rounded-2xl bg-emerald-700 text-white font-bold hover:bg-emerald-800 transition-all shadow-md transform active:scale-95">
+                    Hitung & Terapkan Koreksi
+                </button>
+
+                <div id="kabisahStatus" class="mt-6 text-center font-bold text-emerald-800 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                    Silakan klik tombol hitung untuk melihat hasil.
+                </div>
+
+                <div id="resultArea" class="hidden mt-8">
+                    <div id="calendarList" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+                </div>
+
+                <div class="mt-10 p-6 bg-slate-100 rounded-2xl border border-slate-200 text-sm text-slate-700">
+                    <h4 class="font-bold text-slate-900 mb-2">Catatan Teknis Ilmu Falak:</h4>
+                    <p class="mb-2 italic">Tentu, ini adalah fitur yang sangat krusial dalam dunia praktisi ilmu falak. Karena metode Urfi adalah pola matematis yang ideal, sedangkan realitas astronomis (Hakiki/Rukyat) sering kali memiliki selisih ±1 hari, maka fitur Koreksi Hari (Offset) adalah solusi terbaik.</p>
+                    <ul class="list-disc ml-5 space-y-1">
+                        <li><strong>Algoritma Otomatis:</strong> Perhitungan 1 Muharram tetap menggunakan siklus Urfi (30 tahun).</li>
+                        <li><strong>Fitur Koreksi (Offset):</strong> Menambahkan opsi untuk menggeser hari ±1 hari. Ini berguna untuk menyesuaikan hasil hisab dengan hasil Rukyatul Hilal atau sidang isbat yang sering kali berbeda satu hari.</li>
+                        <li><strong>Stabilitas Kode:</strong> Memastikan perhitungan hari selalu berada dalam range 0-6 (Minggu-Sabtu) meskipun dilakukan koreksi.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl my-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 id="modalTitle" class="text-2xl font-bold text-emerald-900">Bulan</h2>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-emerald-700 font-bold px-3 py-1 bg-slate-100 rounded-lg">Tutup</button>
+            </div>
+            <div id="calendarGrid" class="grid grid-cols-7 gap-2 text-center text-sm mb-6"></div>
+            
+            <div id="legendArea" class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-600">
+                <h4 class="font-bold mb-2">Legenda Hari Besar:</h4>
+                <div id="legendItems" class="grid grid-cols-1 gap-1"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const hariArr = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+        const monthNames = ["Muharram", "Safar", "Rabiul Awal", "Rabiul Akhir", "Jumadil Awal", "Jumadil Akhir", "Rajab", "Sya'ban", "Ramadhan", "Syawal", "Dzulqa'dah", "Dzulhijjah"];
+        
+        const specialDays = {
+            "0-1": "Tahun Baru Islam (1 Muharram)",
+            "0-10": "Asyura (10 Muharram)",
+            "2-12": "Maulid Nabi (12 Rabiulawal)",
+            "6-27": "Isra Mikraj (27 Rajab)",
+            "7-14": "Nisfu Sya'ban (14 Sya'ban)",
+            "8-17": "Nuzulul Qur'an (17 Ramadan)",
+            "9-1": "Idulfitri (1 Syawal)",
+            "11-9": "Hari Arafah (9 Zulhijah)",
+            "11-10": "Iduladha (10 Zulhijah)"
+        };
+
+        let calculatedData = [];
+
+        function isKabisahUrfi(year) {
+            let cycleYear = (year - 1) % 30 + 1;
+            return [2, 5, 7, 10, 13, 16, 18, 21, 24, 26, 29].includes(cycleYear);
+        }
+
+        function getStartDay(year) {
+            let kabisahCount = 0;
+            for (let y = 1; y < year; y++) {
+                if (isKabisahUrfi(y)) kabisahCount++;
+            }
+            let totalDays = (year - 1) * 354 + kabisahCount;
+            return (5 + totalDays) % 7; 
+        }
+
+        function calculate() {
+            const year = parseInt(document.getElementById('inputYear').value);
+            const offset = parseInt(document.getElementById('offset').value);
+            
+            if (!year) { alert("Masukkan tahun terlebih dahulu!"); return; }
+
+            const baseStartDay = getStartDay(year);
+            const finalStartDay = (baseStartDay + offset + 7) % 7;
+            const isKabisahYear = isKabisahUrfi(year);
+            
+            document.getElementById('kabisahStatus').innerHTML = `
+                Tahun ${year} dimulai hari: <strong>${hariArr[finalStartDay]}</strong><br>
+                Status Tahun: <strong>${isKabisahYear ? "KABISAH (355 Hari)" : "BASITAH (354 Hari)"}</strong>
+            `;
+
+            const resultArea = document.getElementById('resultArea');
+            const calendarList = document.getElementById('calendarList');
+            const daysInMonths = [30, 29, 30, 29, 30, 29, 30, 29, 30, 29, 30, isKabisahYear ? 30 : 29];
+            
+            calculatedData = [];
+            let currentDayIndex = finalStartDay;
+            let html = '';
+
+            daysInMonths.forEach((days, i) => {
+                calculatedData.push({ monthIdx: i, name: monthNames[i], days: days, startDay: currentDayIndex });
+                html += `
+                    <div onclick="openModal(${i})" class="bg-emerald-50 hover:bg-emerald-100 cursor-pointer p-4 rounded-xl border border-emerald-100 transition-all text-center">
+                        <h3 class="font-bold text-emerald-800">${monthNames[i]}</h3>
+                        <p class="text-xs text-emerald-600">Mulai: ${hariArr[currentDayIndex]}</p>
+                    </div>
+                `;
+                currentDayIndex = (currentDayIndex + days) % 7;
+            });
+
+            calendarList.innerHTML = html;
+            resultArea.classList.remove('hidden');
+        }
+
+        function openModal(index) {
+            const data = calculatedData[index];
+            const grid = document.getElementById('calendarGrid');
+            const legendItems = document.getElementById('legendItems');
+            document.getElementById('modalTitle').innerText = data.name;
+            grid.innerHTML = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'].map(h => `<div class="font-bold text-emerald-700">${h}</div>`).join('');
+
+            for(let i=0; i < data.startDay; i++) grid.innerHTML += '<div></div>';
+            
+            let legendsUsed = [];
+
+            for(let i=1; i <= data.days; i++) {
+                const key = `${data.monthIdx}-${i}`;
+                const isSpecial = specialDays[key];
+                const bgClass = isSpecial ? "bg-red-500 text-white font-bold" : "bg-emerald-50";
+                
+                grid.innerHTML += `<div class="p-2 border rounded-lg ${bgClass}">${i}</div>`;
+                if(isSpecial) legendsUsed.push(isSpecial);
+            }
+
+            legendItems.innerHTML = legendsUsed.map(l => `<div class="flex items-center"><span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>${l}</div>`).join('');
+            if(legendsUsed.length === 0) legendItems.innerHTML = 'Tidak ada hari besar di bulan ini.';
+
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('modal').classList.add('flex');
+        }
+
+        function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
